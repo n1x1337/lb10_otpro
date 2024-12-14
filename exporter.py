@@ -3,22 +3,22 @@ import psutil
 import time
 import os
 
-cpu_usage = Gauge('cpu_usage', 'CPU usage percentage')
-memory_total = Gauge('memory_total', 'Total memory in bytes')
-memory_used = Gauge('memory_used', 'Used memory in bytes')
-disk_total = Gauge('disk_total', 'Total disk space in bytes')
-disk_used = Gauge('disk_used', 'Used disk space in bytes')
+cpu_core_usage = Gauge('metric_cpu_usage', 'CPU usage percentage per core', ['core'])
+memory = Gauge('metric_memory', 'Memory metrics in megabytes', ['type'])
+disk = Gauge('metric_disk', 'Disk space metrics in gigabytes', ['type'])
 
 def collect_metrics():
-    cpu_usage.set(psutil.cpu_percent(interval=1))
+    core_percentages = psutil.cpu_percent(percpu=True)
+    for core, usage in enumerate(core_percentages):
+        cpu_core_usage.labels(core=str(core)).set(usage)
     
     mem = psutil.virtual_memory()
-    memory_total.set(mem.total)
-    memory_used.set(mem.used)
+    memory.labels(type="total").set(mem.total / (1024 * 1024))
+    memory.labels(type="used").set(mem.used / (1024 * 1024))
     
-    disk = psutil.disk_usage('/')
-    disk_total.set(disk.total)
-    disk_used.set(disk.used)
+    disk_usage = psutil.disk_usage('/')
+    disk.labels(type="total").set(disk_usage.total / (1024 * 1024 * 1024))
+    disk.labels(type="used").set(disk_usage.used / (1024 * 1024 * 1024))
 
 if __name__ == "__main__":
     host = os.getenv("EXPORTER_HOST", "0.0.0.0")
